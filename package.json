@@ -1,17 +1,30 @@
 {
-  "name": "forgesample",
+  "name": "aps-viewer-sandbox",
   "version": "1.0.0",
-  "description": "Sample application for learnforge.autodesk.io.",
-  "main": "start.js",
+  "description": "Autodesk Platform Services application built by following the Simple Viewer tutorial from https://aps.autodesk.com/tutorials.",
+  "type": "module",
   "scripts": {
-    "start": "node start.js"
+    "start": "node server.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "aps",
+    "autodesk-platform-services",
+    "aps-viewer",
+    "forge-viewer"
+  ],
   "license": "MIT",
   "dependencies": {
-    "async": "^3.2.4",
-    "express": "^4.18.2",
-    "forge-apis": "^0.9.7",
-    "guid": "0.0.12",
-    "multer": "^1.3.1"
+    "@aps_sdk/authentication": "^1.0.1",
+    "@aps_sdk/model-derivative": "^1.2.1",
+    "@aps_sdk/oss": "^1.3.3",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "multer": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/forge-viewer": "*"
   }
 }

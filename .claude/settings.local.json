@@ -1,0 +1,63 @@
+{
+  "permissions": {
+    "allow": [
+      "Agent",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git worktree add *)",
+      "Bash(git worktree list)",
+      "Bash(git worktree list *)",
+      "Bash(npm run start)",
+      "Bash(npm run dev)",
+      "Bash(npm run build)",
+      "Bash(npm run test)",
+      "Bash(npm run preview)",
+      "Bash(npm test)",
+      "mcp__codebase-memory-mcp__*",
+      "mcp__firecrawl-mcp__firecrawl_scrape",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_find",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_run_code_unsafe",
+      "mcp__playwright__browser_hover",
+      "mcp__playwright__browser_handle_dialog",
+      "mcp__playwright__browser_drag",
+      "mcp__playwright__browser_select_option",
+      "mcp__playwright__browser_press_key",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_network_requests"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "playwright"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__playwright__browser_navigate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "url=$(jq -r '.tool_input.url // \"\"' 2>/dev/null); if echo \"$url\" | grep -qE '^http://localhost:8080($|/)'; then exit 0; else echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"Only http://localhost:8080/ URLs are allowed by this project's policy\\\"}\"; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__playwright__browser_navigate_back",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"browser_navigate_back is disabled by this project's policy \\u2014 use browser_navigate to http://localhost:8080/ instead\\\"}\"; exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}

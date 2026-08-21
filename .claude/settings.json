@@ -1,0 +1,72 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test *)",
+      "Bash(node --check *)",
+      "Bash(npm view *)",
+      "Bash(npm ls *)",
+      "Bash(git check-ignore *)"
+    ],
+
+    "ask": [
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(git restore *)",
+      "Edit(.git/config)",
+      "Edit(.git/hooks/**)",
+
+      "Bash(npm run deploy)",
+      "Bash(npm run deploy -- *)",
+      "Bash(npm publish *)",
+
+      "Edit(node_modules/**)"
+    ],
+
+    "deny": [
+      "Edit(dist/**)"
+    ]
+  },
+
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+
+    "filesystem": {
+      "allowWrite": [
+        ".git/**",
+        "~/.npm",
+        "~/.yarn",
+        "~/.pnpm-store",
+        "./node_modules"
+      ],
+
+      "denyWrite": [
+        "~/.claude/plugins/cache"
+      ],
+
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.gnupg",
+        "~/.config/gcloud",
+        ".env"
+      ]
+    },
+
+    "network": {
+      "allowedDomains": [
+        "registry.npmjs.org",
+        "*.npmjs.org",
+        "github.com",
+        "*.github.com",
+        "raw.githubusercontent.com",
+        "aps.autodesk.com",
+        "developer.api.autodesk.com",
+        "*.autodesk.com"
+      ],
+      "allowLocalBinding": true
+    }
+  }
+}

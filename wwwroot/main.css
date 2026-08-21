@@ -1,0 +1,163 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    font-family: ArtifaktElement;
+}
+
+#header, #preview, #overlay {
+    position: absolute;
+    width: 100%;
+}
+
+#header {
+    height: 3em;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#preview, #overlay {
+    top: 3em;
+    bottom: 0;
+}
+
+#overlay {
+    z-index: 1;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 1em;
+    display: none;
+}
+
+#overlay > .notification {
+    margin: auto;
+    padding: 1em;
+    max-width: 50%;
+    background: white;
+}
+
+#header > * {
+    height: 2em;
+    margin: 0 0.5em;
+    font-size: 1em;
+    font-family: ArtifaktElement;
+}
+
+#header .title {
+    flex: 1 0 auto;
+    height: auto;
+}
+
+/* A base64 URN runs ~60 characters, so the input needs real width; without
+   this it inherits nothing from #header > * but a height. */
+#urn {
+    flex: 1 1 32em;
+    min-width: 8em;
+    padding: 0 0.5em;
+}
+
+/* The dialog holds no padding of its own so that `event.target === dialog`
+   identifies a backdrop click and not a click on the dialog's own edge. */
+#picker {
+    /* Positioned from JS against the Browse button; the UA sheet's
+       `dialog:modal { inset: 0; margin: auto }` would otherwise centre it and
+       override the computed offsets. */
+    position: fixed;
+    right: auto;
+    bottom: auto;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    max-width: min(32em, 90vw);
+    font-family: ArtifaktElement;
+}
+
+#picker::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.picker-body {
+    padding: 1em;
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 0.75em;
+}
+
+.picker-title {
+    margin: 0;
+    font-size: 1.1em;
+}
+
+.picker-status:empty {
+    display: none;
+}
+
+.picker-status {
+    margin: 0;
+}
+
+.picker-status[data-error="true"] {
+    color: #b00020;
+    white-space: pre-wrap;
+}
+
+.picker-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 16em;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+}
+
+.picker-list:empty {
+    display: none;
+}
+
+.picker-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.35em 0.5em;
+}
+
+.picker-list li + li {
+    border-top: 1px solid #eee;
+}
+
+/* :not([hidden]) keeps this from beating the `hidden` attribute: both this
+   class selector and the UA stylesheet's `[hidden] { display: none }` rule
+   have identical specificity, so without the guard the later, higher-
+   priority author sheet would always win the tie and the label would show
+   even while `hidden` is set. */
+.picker-entrypoint:not([hidden]) {
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 0.25em;
+}
+
+.picker-upload-message {
+    margin: 0;
+    /* The URN in an "Uploaded name — urn" notice must be selectable and must
+       not overflow the dialog. */
+    word-break: break-all;
+    user-select: text;
+}
+
+.picker-upload-message[data-error="true"] {
+    color: #b00020;
+}
+
+.picker-footer {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    gap: 0.5em;
+}
+
+/* Pins Upload left and the Cancel/Confirm pair right. */
+.picker-spacer {
+    flex: 1 1 auto;
+}

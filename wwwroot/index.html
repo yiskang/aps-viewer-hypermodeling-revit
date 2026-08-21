@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="icon" type="image/x-icon" href="https://cdn.autodesk.io/favicon.ico">
+    <!-- Common packages: jQuery, Bootstrap, jsTree -->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.7/jstree.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.1/moment.min.js"></script>
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.7/themes/default/style.min.css" />
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.7/themes/default-dark/style.min.css" />
+
+    <link rel="stylesheet" href="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.124.2/style.css">
+    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/SheetsBrowserExt.css">
+
+    <title>Autodesk Platform Services: Simple Viewer</title>
+</head>
+
+<body>
+    <div id="header">
+        <img class="logo" src="https://cdn.autodesk.io/logo/black/stacked.png" alt="Autodesk Platform Services">
+        <span class="title">Simple Viewer</span>
+        <input type="text" id="urn" placeholder="Paste a model URN" spellcheck="false" autocomplete="off">
+        <button id="load">Load</button>
+        <button id="browse">Browse…</button>
+    </div>
+    <div id="preview"></div>
+    <div id="overlay"></div>
+    <dialog id="picker">
+        <div class="picker-body">
+            <h2 class="picker-title">Choose a model</h2>
+            <p id="picker-status" class="picker-status"></p>
+            <button type="button" id="picker-retry" class="picker-retry" hidden>Retry</button>
+            <ul id="picker-list" class="picker-list"></ul>
+            <label id="picker-entrypoint-label" class="picker-entrypoint" hidden>
+                Main design file inside the archive
+                <input type="text" id="picker-entrypoint" spellcheck="false" autocomplete="off">
+            </label>
+            <p id="picker-upload-message" class="picker-upload-message" hidden></p>
+            <div class="picker-footer">
+                <button type="button" id="picker-upload">Upload…</button>
+                <button type="button" id="picker-upload-start" hidden>Start upload</button>
+                <span class="picker-spacer"></span>
+                <button type="button" id="picker-cancel">Cancel</button>
+                <button type="button" id="picker-confirm" disabled>Confirm</button>
+            </div>
+            <input type="file" id="picker-file" hidden>
+        </div>
+    </dialog>
+    <script src="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.124.2/viewer3D.js"></script>
+    <script src="/main.js" type="module"></script>
+</body>
+
+</html>
