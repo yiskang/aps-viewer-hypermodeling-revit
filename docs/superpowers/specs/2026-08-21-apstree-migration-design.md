@@ -1,7 +1,7 @@
 # Replace jstree with APSTree in SheetsBrowserExt
 
 Date: 2026-08-21
-Status: Draft — awaiting review
+Status: Draft — reviewed by codex-advisor, findings resolved below
 
 ## Context
 
@@ -74,11 +74,35 @@ From the vendored `APSTree` class:
 - `tree.on(event, cb)` — events used: `nodeCheck` (`{nodeId, checked,
   programmatic}`), `nodeToggle` (`{nodeId, expanded}`).
 - `tree.collapseNode(nodeId)` — used for the accordion behavior.
+  Verified idempotent: it's a no-op unless `nodeId` is currently in
+  `tree.expandedNodes` (`if (this.expandedNodes.has(nodeId))
+  this.toggleNode(nodeId);`), so calling it on an already-collapsed
+  sibling is safe.
+- `tree.expandedNodes: Set<id>` — public property (same file, plain
+  class field), the authoritative source of which nodes are currently
+  expanded. Used for the accordion logic instead of re-deriving
+  expansion state some other way.
 - `tree.nodeMap: Map<id, node & {parent}>` — public property, used to
   resolve a node's type/dbId/parent without re-walking `tree.data`.
+- **Cascade never fires `nodeCheck` for cascaded nodes.** Verified from
+  source: `toggleCheck()` (bound to the real checkbox click) calls
+  `checkNodeAndChildren`/`uncheckNodeAndChildren`, which cascade into
+  `checkChildrenRecursive`/`uncheckChildrenRecursive` — those only
+  mutate `checkedNodes`/`indeterminateNodes` and call
+  `updateCheckboxState()` (DOM-only, no event). `trigger('nodeCheck',
+  ...)` is called exactly once, for the clicked node only, with
+  `programmatic: false`. The public bulk API (`checkNode`/`uncheckNode`
+  and friends) can fire `nodeCheck` with `programmatic: true`, but this
+  design never calls those methods, so `programmatic` is always `false`
+  in practice — no double-fire, no filtering needed. (An earlier draft
+  of this spec worried a user-level-check could double-trigger
+  `loadSheetFromLevel`; that's not possible given how cascade is wired.)
 - No built-in hover events and no "whole row click = check" behavior —
   both are jstree-plugin behaviors with no APSTree equivalent; see
   decisions below.
+- `label.textContent = node.label || ...` — labels are set via
+  `textContent`, not `innerHTML`, so level/sheet names cannot inject
+  markup. No escaping concern.
 
 ## Decisions (already confirmed)
 
@@ -97,19 +121,28 @@ From the vendored `APSTree` class:
    and its two theme `<link>` tags, and also remove the jQuery and
    Bootstrap CDN tags (script + CSS). Confirmed via full-repo grep that
    no `wwwroot` JS uses `$`/`jQuery(`, and no markup in `index.html`
-   uses any Bootstrap CSS class — both are fully unused once jstree is
-   gone. `moment.js` is left alone (out of scope — not investigated
-   here).
+   uses any Bootstrap CSS *class*. The JS removals are therefore
+   behavior-inert; the Bootstrap CSS removal is not automatically
+   risk-free the same way (see Files §3) and needs the visual check in
+   Testing step 9. `moment.js` is left alone (out of scope — not
+   investigated here).
 
 ## Design
 
 ### Files
 
 1. **New `wwwroot/aps-tree.js`** — the vendored `APSTree` class only,
-   as an ES module (`export class APSTree { ... }`), with jQuery usage
-   (there is none in the class itself) and the other three sample
-   classes stripped. Attribution comment pointing at the upstream
-   sample file this was extracted from.
+   as an ES module (`export class APSTree { ... }`), with the other
+   three sample classes (`APSTreeToolbar` and the two AECDM-specific
+   classes) stripped; the `APSTree` class itself has no jQuery usage to
+   remove. Pinned to commit
+   `12b5b22225121cb54778ca9e23d036db9711c7cf` of
+   `aps-aecdm-property-extensibility-manager-sample` (2026-05-05,
+   authored by the same Autodesk account as this migration's requester
+   — this is that team's own sample, not an unfamiliar third party),
+   not the mutable `main` branch. Head comment records: source URL +
+   pinned commit SHA, extraction date, and the repo's MIT license
+   notice (`Copyright (c) 2023 Autodesk`, from its `LICENSE` file).
 
 2. **`wwwroot/SheetsBrowserExt.js`** — rewrite `buildTree()`:
    - `import { APSTree } from './aps-tree.js';` at the top of the file.
@@ -131,17 +164,44 @@ From the vendored `APSTree` class:
    - Accordion: `this.tree.on('nodeToggle', ({ nodeId, expanded }) => {
      if (!expanded) return; const node = this.tree.nodeMap.get(nodeId);
      if (node.objectType !== 'levels') return; /* collapse sibling
-     expanded level nodes */ });` — iterate the top-level node ids and
-     call `this.tree.collapseNode(id)` for any other than `nodeId`
-     that's expanded.
-   - Hover: add native `mouseover`/`mouseout` listeners on
-     `this.treeContainer` (event delegation, `event.target.closest('.aps-tree-node')`)
-     since APSTree has no hover events. Resolve the hovered node via
-     `this.tree.nodeMap.get(nodeElement.dataset.nodeId)` to get
-     `objectType`/`label`/`parent`, then call the existing
-     `hoverLevelByName`/`dehoverLevel` exactly as today (level row →
-     hover own name; sheet row → hover parent's name via
-     `nodeMap.get(node.parent).label`).
+     expanded level nodes */ });` — iterate the level node ids and call
+     `this.tree.collapseNode(id)` for any other than `nodeId` present
+     in `this.tree.expandedNodes` (the verified-idempotent public Set,
+     not re-derived some other way). Each `collapseNode()` call
+     re-enters `toggleNode()` and fires its own `nodeToggle`
+     (`expanded: false`) for that sibling — harmless, since the
+     `if (!expanded) return;` guard at the top of this same handler
+     absorbs it without recursing further.
+   - Hover: APSTree has no hover events, and naive delegated
+     `mouseover`/`mouseout` listeners *bubble on every element
+     transition inside one row* (checkbox → label → expand-icon), which
+     would re-fire hover/dehover repeatedly while the pointer sits over
+     a single row. Bind one handler to both `mouseover` and `mouseout`
+     on `this.treeContainer` that only acts on a genuine *row* change:
+     ```js
+     const handleTreeHover = (event) => {
+       const rowEl = event.target.closest('.aps-tree-node');
+       const relatedRowEl = event.relatedTarget?.closest?.('.aps-tree-node') ?? null;
+       if (rowEl === relatedRowEl) return; // moved within the same row
+       if (relatedRowEl) this.dehoverLevel();
+       if (rowEl) {
+         const node = this.tree.nodeMap.get(rowEl.dataset.nodeId);
+         const levelName = node.objectType === 'levels'
+           ? node.label
+           : this.tree.nodeMap.get(node.parent)?.label;
+         this.hoverLevelByName(levelName);
+       } else {
+         this.dehoverLevel();
+       }
+     };
+     this.treeContainer.addEventListener('mouseover', handleTreeHover);
+     this.treeContainer.addEventListener('mouseout', handleTreeHover);
+     ```
+     Store `handleTreeHover` on the panel instance so `uninitialize()`
+     can remove both listeners explicitly — `APSTree.destroy()` only
+     detaches listeners *it* installed (its own click handler and
+     `ResizeObserver`), not ones `SheetsBrowserPanel` adds directly to
+     the container.
    - Check/uncheck: `this.tree.on('nodeCheck', ({ nodeId, checked }) =>
      { ... })` — resolve node via `nodeMap`, branch on `objectType` and
      `checked` exactly as the current `changed.jstree` handler does
@@ -150,18 +210,28 @@ From the vendored `APSTree` class:
    - `uninitialize()`: today `SheetsBrowserPanel.uninitialize()` only
      calls `super.uninitialize()` — the jstree instance is never
      explicitly destroyed, it's just discarded with the DOM subtree
-     when the panel is removed. For parity nothing further is
-     *required*, but add `this.tree?.destroy(); this.tree = null;` at
-     the top of `uninitialize()` anyway, since it's a one-line, no-risk
-     addition that detaches the click listener and `ResizeObserver`
-     APSTree installs instead of leaving them to be garbage-collected
-     implicitly.
+     when the panel is removed. Add, before `super.uninitialize()`:
+     `this.treeContainer?.removeEventListener('mouseover', this.handleTreeHover);
+     this.treeContainer?.removeEventListener('mouseout', this.handleTreeHover);
+     this.tree?.destroy(); this.tree = null;` — the explicit listener
+     removal is required (not optional cleanup) because `APSTree.destroy()`
+     does not know about listeners `SheetsBrowserPanel` installed on
+     the container itself.
 
 3. **`wwwroot/index.html`** — delete the jstree `<script>` tag (CDN,
    v3.3.7) and its two theme `<link>` tags (`default` and
-   `default-dark`), the jQuery `<script>` tag, the Bootstrap JS
-   `<script>` tag, and the Bootstrap CSS `<link>` tag. Leave the
-   moment.js `<script>` tag untouched (unrelated, not investigated).
+   `default-dark`), the jQuery `<script>` tag, and the Bootstrap JS
+   `<script>` tag — all confirmed unused (no `$`/`jQuery(` calls, no
+   Bootstrap component classes anywhere in `wwwroot`), so removing
+   these is behavior-inert. The Bootstrap **CSS** `<link>` tag is
+   different: Bootstrap 3's stylesheet includes a global reset
+   (`box-sizing`, typography, button/input baseline styles) that can
+   affect native elements even where no Bootstrap *class* is used —
+   absence of `.btn`/`.modal`/etc. classes does not prove it's safe to
+   remove. Remove it too, but treat it as a visual change requiring the
+   check in Testing step 9 below, not a mechanical no-op like the other
+   four tags. Leave the moment.js `<script>` tag untouched (unrelated,
+   not investigated).
 
 4. **`wwwroot/SheetsBrowserExt.css`** — no changes. Existing
    `.adn-sheets-browser-panel` sizing/position rules already match
@@ -216,6 +286,14 @@ the viewer UI):
 8. Confirm no console errors related to jQuery/jstree/Bootstrap, and
    that `index.html` no longer requests jstree, jQuery, or Bootstrap
    assets (check Network tab).
+9. With Bootstrap CSS removed, visually check the header bar, the
+   model-picker `<dialog>` (title, status/retry/list/upload rows,
+   footer buttons), and the `#urn`/`#load`/`#browse` controls against
+   how they looked before this change — Bootstrap 3's reset affects
+   `box-sizing`, typography, and native button/input styling globally,
+   not just where a `.btn`/`.modal`/etc. class is present. If anything
+   visibly regresses, add the specific missing baseline rule(s) to
+   `wwwroot/main.css` rather than restoring the Bootstrap CDN tag.
 
 ## Out of scope
 
