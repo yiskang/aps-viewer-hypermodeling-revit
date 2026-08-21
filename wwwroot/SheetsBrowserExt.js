@@ -64,6 +64,7 @@ class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
         if (this.treeContainer) {
             this.treeContainer.removeEventListener('mouseover', this.handleTreeHover);
             this.treeContainer.removeEventListener('mouseout', this.handleTreeHover);
+            this.treeContainer.removeEventListener('click', this.handleTreeClick);
         }
 
         if (this.tree) {
@@ -119,6 +120,7 @@ class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
         this.tree = new APSTree(this.treeContainer, {
             showCheckboxes: true,
             multiSelect: true,
+            expandOnClick: false,
             viewer: this.viewer
         });
         this.tree.setData(nodes);
@@ -171,6 +173,21 @@ class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
         };
         this.treeContainer.addEventListener('mouseover', this.handleTreeHover);
         this.treeContainer.addEventListener('mouseout', this.handleTreeHover);
+
+        this.handleTreeClick = (event) => {
+            const rowEl = event.target.closest('.aps-tree-node');
+            if (!rowEl) return;
+
+            // The checkbox and the expand arrow already handle their own
+            // clicks (checkbox toggles itself; arrow expands/collapses).
+            // Reacting to those here too would double-toggle the checkbox
+            // or fight the arrow's dedicated expand/collapse behavior.
+            const action = event.target.dataset.action;
+            if (action === 'check' || action === 'toggle') return;
+
+            this.tree.toggleCheck(rowEl.dataset.nodeId);
+        };
+        this.treeContainer.addEventListener('click', this.handleTreeClick);
 
         this.tree.on('nodeCheck', async ({ nodeId, checked }) => {
             const node = this.tree.nodeMap.get(nodeId);
