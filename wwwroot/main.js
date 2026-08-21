@@ -32,12 +32,11 @@ function setupUrnInput(viewer) {
         }
     };
 
-    // Browse fills the textbox and nothing more. Load is the only thing that
-    // ever loads, so the textbox is always what will load next.
     browseButton.onclick = async () => {
         const urn = await openModelPicker(browseButton);
         if (urn) {
             input.value = urn;
+            request(urn);
         }
     };
 
