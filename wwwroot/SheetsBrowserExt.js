@@ -16,6 +16,9 @@
 // UNINTERRUPTED OR ERROR FREE.
 /////////////////////////////////////////////////////////////////////
 
+import { APSTree } from './aps-tree.js';
+import { buildTreeNodes } from './sheets-tree-data.js';
+
 class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
     constructor(viewer) {
         const options = {};
@@ -58,6 +61,16 @@ class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
     }
 
     uninitialize() {
+        if (this.treeContainer) {
+            this.treeContainer.removeEventListener('mouseover', this.handleTreeHover);
+            this.treeContainer.removeEventListener('mouseout', this.handleTreeHover);
+        }
+
+        if (this.tree) {
+            this.tree.destroy();
+            this.tree = null;
+        }
+
         super.uninitialize();
     }
 
@@ -101,117 +114,97 @@ class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
     }
 
     buildTree(data) {
-        const nodes = [];
+        const nodes = buildTreeNodes(data, (i) => this.hyperModelingTool.getAvailableSheetsForLevel(i));
 
-        for (let i = 0; i < data.length; i++) {
-            const sheets = this.hyperModelingTool.getAvailableSheetsForLevel(i);
+        this.tree = new APSTree(this.treeContainer, {
+            showCheckboxes: true,
+            multiSelect: true,
+            viewer: this.viewer
+        });
+        this.tree.setData(nodes);
 
-            if (!sheets || sheets.length <= 0) continue;
+        this.tree.on('nodeToggle', ({ nodeId, expanded }) => {
+            if (!expanded) return;
 
-            const node = {
-                dbId: data[i].index,
-                type: 'levels',
-                text: data[i].name,
-                children: sheets.map((child, idx) => {
-                    return {
-                        dbId: idx,
-                        type: 'sheets',
-                        text: child.node.name()
-                    };
-                })
-            }
-            nodes.push(node);
-        }
+            const node = this.tree.nodeMap.get(nodeId);
+            if (!node || node.objectType !== 'levels') return;
 
-        console.log(nodes);
-
-        $(this.treeContainer)
-            .jstree({
-                core: {
-                    data: nodes,
-                    multiple: true,
-                    themes: {
-                        icons: false,
-                        name: 'default-dark'
-                    }
-                },
-                sort: function (a, b) {
-                    const a1 = this.get_node(a);
-                    const b1 = this.get_node(b);
-                    return (a1.text > b1.text) ? 1 : -1;
-                },
-                checkbox: {
-                    keep_selected_style: false,
-                    //three_state: false,
-                    deselect_all: true,
-                    cascade: 'none'
-                },
-                types: {
-                    levels: {},
-                    sheets: {}
-                },
-                plugins: ['types', 'checkbox', 'sort', 'wholerow'],
-            })
-            .on('open_node.jstree', (e, data) => {
-                const node = data.instance.get_node(data.node, true);
-                if (!node) {
-                    return;
-                }
-
-                node.siblings('.jstree-open').each(function () {
-                    data.instance.close_node(this, 0);
-                });
-            })
-            .on('hover_node.jstree', async (e, data) => {
-                let level = null;
-                if (data.node.type === 'levels') {
-                    level = data.node.text;
-                } else {
-                    level = data.instance.get_node(data.node.parent)?.text;
-                }
-
-                this.hoverLevelByName(level);
-            })
-            .on('dehover_node.jstree', async (e, data) => {
-                this.dehoverLevel();
-            })
-            .on('changed.jstree', async (e, data) => {
-                // console.log(e, data);
-                if (!data.node || !data.node.type) {
-                    return;
-                }
-
-                if (data.action === 'select_node') {
-                    const sheetLoadedHandler = (result) => {
-                        if (!result.model.isPdf()) return;
-
-                        result.model.changePaperVisibility(false);
-                    };
-
-                    if (data.node.type === 'sheets') {
-                        const sheetIdx = data.node.original.dbId;
-                        const levelIdx = data.instance.get_node(data.node.parent).original.dbId;
-                        await this.hyperModelingTool.loadSheetFromLevel(levelIdx, sheetIdx, sheetLoadedHandler);
-                    } else {
-                        const levelIdx = data.node.original.dbId;
-                        const sheets = this.hyperModelingTool.getAvailableSheetsForLevel(levelIdx);
-                        sheets.forEach(async (sheet, sheetIdx) => {
-                            await this.hyperModelingTool.loadSheetFromLevel(levelIdx, sheetIdx, sheetLoadedHandler);
-                        });
-                    }
-                } else {
-                    if (data.node.type === 'sheets') {
-                        const sheetIdx = data.node.original.dbId;
-                        const levelIdx = data.instance.get_node(data.node.parent).original.dbId;
-
-                        const loadedSheet = this.hyperModelingTool.findLoadedSheetFromLevelAndSheetIndex(levelIdx, sheetIdx);
-                        this.hyperModelingTool.unloadSheet(loadedSheet);
-                    } else {
-                        const levelIdx = data.node.original.dbId;
-                        this.hyperModelingTool.unloadSheetsFromLevel(levelIdx);
-                    }
+            nodes.forEach((levelNode) => {
+                if (levelNode.id !== nodeId && this.tree.expandedNodes.has(levelNode.id)) {
+                    this.tree.collapseNode(levelNode.id);
                 }
             });
+        });
+
+        this.hoveredNodeId = null;
+        this.handleTreeHover = (event) => {
+            if (event.type === 'mouseover') {
+                const rowEl = event.target.closest('.aps-tree-node');
+                const rowId = rowEl?.dataset.nodeId ?? null;
+
+                if (rowId === this.hoveredNodeId) return; // still inside the same row
+
+                if (this.hoveredNodeId !== null) this.dehoverLevel();
+                this.hoveredNodeId = rowId;
+
+                if (rowEl) {
+                    const node = this.tree.nodeMap.get(rowId);
+                    const levelName = node.objectType === 'levels'
+                        ? node.label
+                        : this.tree.nodeMap.get(node.parent)?.label;
+                    this.hoverLevelByName(levelName);
+                }
+                return;
+            }
+
+            // mouseout: only dehover when the pointer left the tree container
+            // entirely. Row-to-row transitions inside the container are
+            // already handled above by the mouseover branch — reacting to
+            // both would either double-fire or (worse) re-hover the row
+            // being left, since a mouseout's own event.target is the row
+            // you're exiting, not the one you're entering.
+            if (event.relatedTarget && this.treeContainer.contains(event.relatedTarget)) return;
+            if (this.hoveredNodeId === null) return;
+
+            this.hoveredNodeId = null;
+            this.dehoverLevel();
+        };
+        this.treeContainer.addEventListener('mouseover', this.handleTreeHover);
+        this.treeContainer.addEventListener('mouseout', this.handleTreeHover);
+
+        this.tree.on('nodeCheck', async ({ nodeId, checked }) => {
+            const node = this.tree.nodeMap.get(nodeId);
+            if (!node) return;
+
+            const sheetLoadedHandler = (result) => {
+                if (!result.model.isPdf()) return;
+
+                result.model.changePaperVisibility(false);
+            };
+
+            if (node.objectType === 'sheets') {
+                const sheetIdx = node.dbId;
+                const levelIdx = this.tree.nodeMap.get(node.parent).dbId;
+
+                if (checked) {
+                    await this.hyperModelingTool.loadSheetFromLevel(levelIdx, sheetIdx, sheetLoadedHandler);
+                } else {
+                    const loadedSheet = this.hyperModelingTool.findLoadedSheetFromLevelAndSheetIndex(levelIdx, sheetIdx);
+                    this.hyperModelingTool.unloadSheet(loadedSheet);
+                }
+            } else {
+                const levelIdx = node.dbId;
+
+                if (checked) {
+                    const sheets = this.hyperModelingTool.getAvailableSheetsForLevel(levelIdx);
+                    sheets.forEach(async (sheet, sheetIdx) => {
+                        await this.hyperModelingTool.loadSheetFromLevel(levelIdx, sheetIdx, sheetLoadedHandler);
+                    });
+                } else {
+                    this.hyperModelingTool.unloadSheetsFromLevel(levelIdx);
+                }
+            }
+        });
     }
 }
 
