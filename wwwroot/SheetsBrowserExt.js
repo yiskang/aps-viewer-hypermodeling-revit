@@ -64,7 +64,7 @@ class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
         if (this.treeContainer) {
             this.treeContainer.removeEventListener('mouseover', this.handleTreeHover);
             this.treeContainer.removeEventListener('mouseout', this.handleTreeHover);
-            this.treeContainer.removeEventListener('click', this.handleTreeClick);
+            this.treeContainer.removeEventListener('click', this.handleTreeClick, true);
         }
 
         if (this.tree) {
@@ -187,7 +187,16 @@ class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
 
             this.tree.toggleCheck(rowEl.dataset.nodeId);
         };
-        this.treeContainer.addEventListener('click', this.handleTreeClick);
+        // Capture phase, not bubble: APSTree's own click handler (bound to
+        // treeWrapper, a child of treeContainer) calls stopPropagation()
+        // unconditionally for any click landing on an element with a
+        // data-action attribute (checkbox, arrow, AND the label span) — see
+        // aps-tree.js's handleClick(). That kills bubble-phase propagation
+        // before it reaches a listener on treeContainer, so label clicks
+        // would silently never reach us. Capture fires top-down, before the
+        // target is reached, so it runs before that stopPropagation() can
+        // block it.
+        this.treeContainer.addEventListener('click', this.handleTreeClick, true);
 
         this.tree.on('nodeCheck', async ({ nodeId, checked }) => {
             const node = this.tree.nodeMap.get(nodeId);

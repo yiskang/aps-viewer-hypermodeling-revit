@@ -108,6 +108,32 @@ automated DOM test harness in this repo):
 Verified against a live model by the user: confirmed working as
 designed.
 
+### Post-implementation fix: label clicks were silently swallowed
+
+The user reported that clicking a row's label text didn't check it —
+only clicking blank padding near the checkbox worked. Root cause
+(confirmed by reading `wwwroot/aps-tree.js:539-546`): APSTree's own
+`handleClick`, bound to `treeWrapper` (a *child* of `treeContainer`),
+calls `event.stopPropagation()` unconditionally whenever the click
+target carries a `data-action` attribute — which includes the label
+span (`data-action="select"`), not just the checkbox and arrow. Since
+bubbling goes inner → outer, `treeWrapper`'s bubble-phase handler always
+fired first and killed propagation before it reached the bubble-phase
+listener on `treeContainer`. Clicks on blank `.aps-tree-content`
+padding (no `data-action`) hit an early return *before* that
+`stopPropagation()` call, so those bubbled through fine — matching
+exactly what was reported.
+
+Fix: register the row-click listener with the capture flag
+(`addEventListener('click', handler, true)`, and the matching
+`removeEventListener(..., true)` in `uninitialize()`). Capture fires
+top-down, before the target is reached, so it runs before
+`treeWrapper`'s later `stopPropagation()` call can block it. No change
+to the exclusion logic (checkbox/arrow still skipped) or to the
+vendored `aps-tree.js`. Verified against a live model: label clicks,
+padding clicks, checkbox clicks, and the arrow icon all behave
+correctly.
+
 ## Out of scope
 
 - No change to `APSTree` itself (`wwwroot/aps-tree.js` stays untouched
