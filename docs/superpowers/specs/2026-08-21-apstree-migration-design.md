@@ -94,10 +94,12 @@ From the vendored `APSTree` class:
    made the entire row act as the checkbox's hit target; APSTree does
    not offer this, and we are not adding glue code to replicate it.
 3. **`index.html` script/link cleanup**: remove the jstree `<script>`
-   and its two theme `<link>` tags. jQuery and Bootstrap CDN tags stay
-   — they're unrelated to this change (confirmed unused by any
-   `wwwroot` JS, but Bootstrap CSS classes may still appear in markup;
-   removing them is out of scope for this spec).
+   and its two theme `<link>` tags, and also remove the jQuery and
+   Bootstrap CDN tags (script + CSS). Confirmed via full-repo grep that
+   no `wwwroot` JS uses `$`/`jQuery(`, and no markup in `index.html`
+   uses any Bootstrap CSS class — both are fully unused once jstree is
+   gone. `moment.js` is left alone (out of scope — not investigated
+   here).
 
 ## Design
 
@@ -157,8 +159,9 @@ From the vendored `APSTree` class:
 
 3. **`wwwroot/index.html`** — delete the jstree `<script>` tag (CDN,
    v3.3.7) and its two theme `<link>` tags (`default` and
-   `default-dark`). Leave jQuery, Bootstrap, and moment.js CDN tags
-   untouched.
+   `default-dark`), the jQuery `<script>` tag, the Bootstrap JS
+   `<script>` tag, and the Bootstrap CSS `<link>` tag. Leave the
+   moment.js `<script>` tag untouched (unrelated, not investigated).
 
 4. **`wwwroot/SheetsBrowserExt.css`** — no changes. Existing
    `.adn-sheets-browser-panel` sizing/position rules already match
@@ -210,14 +213,12 @@ the viewer UI):
    level checkbox shows indeterminate.
 7. Verify only the checkbox toggles state — clicking elsewhere on a
    row does not check/uncheck it (per decision #2).
-8. Confirm no console errors related to jQuery/jstree, and that
-   `index.html` no longer requests jstree assets (check Network tab).
+8. Confirm no console errors related to jQuery/jstree/Bootstrap, and
+   that `index.html` no longer requests jstree, jQuery, or Bootstrap
+   assets (check Network tab).
 
 ## Out of scope
 
-- Removing jQuery/Bootstrap CDN tags from `index.html` (nothing in
-  `wwwroot` uses them after this change, but that's a separate
-  cleanup the user can request explicitly).
 - Any change to `Autodesk.AEC.Hypermodeling` / `LevelsExtension`
   behavior, or to the toolbar button that shows/hides the panel.
 - Adding automated tests (none exist for this UI today).
