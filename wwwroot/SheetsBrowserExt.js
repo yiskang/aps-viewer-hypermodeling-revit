@@ -19,6 +19,70 @@
 import { APSTree } from './aps-tree.js';
 import { buildTreeNodes } from './sheets-tree-data.js';
 
+function injectStyles() {
+    if (document.getElementById('adn-sheets-browser-ext-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'adn-sheets-browser-ext-styles';
+    style.textContent = `
+        .adn-docking-panel {
+          top: 10px;
+          left: 10px;
+        }
+
+        .adn-sheets-browser-panel {
+          max-width: 315px;
+          max-height: 280px;
+          width: 315px;
+          height: 280px;
+          left: 10px;
+          top: 225px;
+        }
+
+        .adn-sheets-browser-panel .docking-panel-footer {
+          z-index: 1;
+        }
+
+        .adsk-viewing-viewer .adsk-icon-documentModels {
+        	background-repeat: no-repeat !important;
+        	background-size: 80% !important;
+        	margin-left: 4px;
+        	margin-top: 3px
+        }
+
+        .adsk-viewing-viewer.dark-theme .adsk-icon-documentModels {
+        	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E %3Ctitle%3Efolder-16%3C/title%3E %3Cg id='assets'%3E %3Cg id='Layer_201' data-name='Layer%25201'%3E %3Cpath fill='%23F4F4F4' d='M0,2.5V4H6.34l1-1-1-1H.5A.5.5,0,0,0,0,2.5ZM0,5v8a1,1,0,0,0,1,1H14a1,1,0,0,0,1-1V4a1,1,0,0,0-1-1H9L7,5Z'/%3E %3C/g%3E %3C/g%3E %3C/svg%3E")
+        }
+
+        .adsk-viewing-viewer.dark-theme .adsk-icon-documentModels:hover,
+        .adsk-viewing-viewer.dark-theme .active .adsk-icon-documentModels {
+        	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E %3Ctitle%3Efolder-16%3C/title%3E %3Cg id='assets'%3E %3Cg id='Layer_201' data-name='Layer%25201'%3E %3Cpath fill='%2300BFFF' d='M0,2.5V4H6.34l1-1-1-1H.5A.5.5,0,0,0,0,2.5ZM0,5v8a1,1,0,0,0,1,1H14a1,1,0,0,0,1-1V4a1,1,0,0,0-1-1H9L7,5Z'/%3E %3C/g%3E %3C/g%3E %3C/svg%3E")
+        }
+
+        .adsk-viewing-viewer.light-theme .adsk-icon-documentModels {
+        	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E %3Ctitle%3Efolder-16%3C/title%3E %3Cg id='assets'%3E %3Cg id='Layer_201' data-name='Layer%25201'%3E %3Cpath fill='black' d='M0,2.5V4H6.34l1-1-1-1H.5A.5.5,0,0,0,0,2.5ZM0,5v8a1,1,0,0,0,1,1H14a1,1,0,0,0,1-1V4a1,1,0,0,0-1-1H9L7,5Z'/%3E %3C/g%3E %3C/g%3E %3C/svg%3E")
+        }
+
+        .adsk-viewing-viewer.light-theme .adsk-icon-documentModels:hover,
+        .adsk-viewing-viewer.light-theme .active .adsk-icon-documentModels {
+        	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E %3Ctitle%3Efolder-16%3C/title%3E %3Cg id='assets'%3E %3Cg id='Layer_201' data-name='Layer%25201'%3E %3Cpath fill='%2300BFFF' d='M0,2.5V4H6.34l1-1-1-1H.5A.5.5,0,0,0,0,2.5ZM0,5v8a1,1,0,0,0,1,1H14a1,1,0,0,0,1-1V4a1,1,0,0,0-1-1H9L7,5Z'/%3E %3C/g%3E %3C/g%3E %3C/svg%3E")
+        }
+
+        .adn-sheets-browser-panel .aps-tree-content:hover {
+        	background-color: rgba(0, 0, 0, 0.06);
+        }
+
+        .adn-sheets-browser-panel .aps-tree-expand-icon:hover {
+        	background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .adn-sheets-browser-panel .aps-tree-content.selected {
+        	background-color: transparent;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
     constructor(viewer) {
         const options = {};
@@ -237,6 +301,8 @@ class SheetsBrowserPanel extends Autodesk.Viewing.UI.DockingPanel {
 class SheetsBrowserExt extends Autodesk.Viewing.Extension {
     constructor(viewer, options) {
         super(viewer, options);
+
+        injectStyles();
 
         this.uiCreated = false;
         this.panel = null;
